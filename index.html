@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#176b58">
+  <title>HomeTrack | تتبّع أصناف البيت</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark">⌂</div><div><h1>HomeTrack</h1><p>تتبّع أصناف البيت بذكاء</p></div></div>
+      <div class="top-actions"><span id="syncStatus" class="sync-pill">وضع تجريبي محلي</span><button id="logoutBtn" class="btn btn-ghost hidden">تسجيل الخروج</button></div>
+    </header>
+
+    <section id="setupNotice" class="notice hidden">
+      <strong>المزامنة السحابية غير مفعّلة بعد</strong>
+      <p>التطبيق يعمل الآن على هذا المتصفح. لتفعيل الحساب والمزامنة بين الموبايل والكمبيوتر، اتبع خطوات ملف <code>README.md</code> وأضف بيانات مشروع Supabase في <code>config.js</code>.</p>
+    </section>
+
+    <section id="authPanel" class="auth-card hidden">
+      <div><span class="eyebrow">مساحتك الخاصة</span><h2>أهلًا بك 👋</h2><p class="muted">سجّل الدخول لمزامنة أصنافك بين أجهزتك.</p></div>
+      <form id="authForm" class="form-grid">
+        <label>البريد الإلكتروني<input id="authEmail" type="email" required autocomplete="email" placeholder="you@example.com"></label>
+        <label>كلمة المرور<input id="authPassword" type="password" required minlength="6" autocomplete="current-password" placeholder="6 أحرف على الأقل"></label>
+        <div class="auth-actions"><button class="btn btn-primary" type="submit" id="loginBtn">تسجيل الدخول</button><button class="btn btn-light" type="button" id="signupBtn">إنشاء حساب</button></div>
+        <p id="authMessage" class="form-message" role="status"></p>
+      </form>
+    </section>
+
+    <main id="mainApp">
+      <section class="welcome-row"><div><span class="eyebrow">لوحة التحكم</span><h2>خلّيك عارف كل صنف قديش بكفّي 🏡</h2><p class="muted">سجّل الشراء، وحدّد تاريخ النفاد لما تخلص العبوة، والباقي علينا.</p></div><button id="addItemBtn" class="btn btn-primary add-main">＋ إضافة صنف</button></section>
+
+      <section class="stats-grid">
+        <article class="stat-card"><div class="stat-icon green">▦</div><div><p>إجمالي الأصناف</p><strong id="totalItems">0</strong></div></article>
+        <article class="stat-card"><div class="stat-icon blue">◷</div><div><p>قيد الاستخدام</p><strong id="activeItems">0</strong></div></article>
+        <article class="stat-card"><div class="stat-icon orange">!</div><div><p>تحتاج انتباه</p><strong id="dueItems">0</strong></div></article>
+        <article class="stat-card"><div class="stat-icon purple">↗</div><div><p>متوسط مدة الاستخدام</p><strong id="overallAverage">—</strong></div></article>
+      </section>
+
+      <section id="alertsSection" class="alerts-section hidden"><h3>🔔 تذكيرات الأصناف</h3><div id="alertsList" class="alerts-list"></div></section>
+
+      <section class="list-card">
+        <div class="section-head"><div><h3>أصناف البيت</h3><p class="muted">تابع العبوات الحالية وسجل المشتريات السابقة.</p></div><div class="list-controls"><input id="searchInput" type="search" placeholder="ابحث عن صنف…"><select id="filterSelect" aria-label="تصفية الأصناف"><option value="all">كل الأصناف</option><option value="active">قيد الاستخدام</option><option value="due">اقترب موعد النفاد</option><option value="empty">لا توجد عبوة حالية</option></select></div></div>
+        <div id="itemsList" class="items-list"></div>
+        <div id="emptyState" class="empty-state"><div class="empty-illustration">🧺</div><h3>لسه ما أضفت أصناف</h3><p>ابدأ بإضافة أول صنف، مثل الزيت أو الأرز أو القهوة.</p><button id="emptyAddBtn" class="btn btn-primary">＋ أضف أول صنف</button></div>
+      </section>
+      <footer><span>HomeTrack</span><span>توقعات مبنية على سجلاتك السابقة وليست موعدًا مضمونًا.</span><button id="exportBtn" class="text-button">تصدير نسخة احتياطية</button><button id="importBtn" class="text-button">استيراد نسخة</button><input id="importFile" type="file" accept="application/json" class="hidden"></footer>
+    </main>
+  </div>
+
+  <dialog id="itemDialog" class="modal">
+    <form id="itemForm" method="dialog">
+      <div class="modal-head"><div><span class="eyebrow">صنف جديد</span><h2>إضافة صنف للمتابعة</h2></div><button type="button" class="icon-btn" data-close="itemDialog" aria-label="إغلاق">×</button></div>
+      <label>اسم الصنف<input id="itemName" required maxlength="80" placeholder="مثال: زيت زيتون"></label>
+      <div class="form-row"><label>الكمية المشتراة<input id="itemQuantity" type="number" min="0.001" step="any" required placeholder="2"></label><label>الوحدة<select id="itemUnit"><option value="لتر">لتر</option><option value="مل">مل</option><option value="كيلو">كيلو</option><option value="غرام">غرام</option><option value="قطعة">قطعة</option><option value="عبوة">عبوة</option><option value="كيس">كيس</option><option value="علبة">علبة</option><option value="حبة">حبة</option><option value="أخرى">أخرى</option></select></label></div>
+      <label>تاريخ الشراء<input id="itemPurchaseDate" type="date" required></label>
+      <label>ملاحظات <span class="muted inline">(اختياري)</span><textarea id="itemNotes" rows="2" maxlength="300" placeholder="العلامة التجارية أو حجم العبوة…"></textarea></label>
+      <p class="modal-hint">إذا كان الصنف موجودًا بالفعل، يمكنك إضافة عبوة جديدة من صفحة الصنف نفسه لاحقًا.</p>
+      <div class="modal-actions"><button type="button" class="btn btn-light" data-close="itemDialog">إلغاء</button><button type="submit" class="btn btn-primary">حفظ الصنف</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="depleteDialog" class="modal small-modal">
+    <form id="depleteForm" method="dialog"><div class="modal-head"><div><span class="eyebrow">تحديث السجل</span><h2>تسجيل نفاد الصنف</h2></div><button type="button" class="icon-btn" data-close="depleteDialog" aria-label="إغلاق">×</button></div>
+      <p id="depleteItemName" class="muted"></p><label>تاريخ النفاد الفعلي<input id="depleteDate" type="date" required></label><p class="modal-hint">اختَر اليوم الذي انتهت فيه الكمية، حتى لو كنت تسجّل النفاد لاحقًا.</p><div class="modal-actions"><button type="button" class="btn btn-light" data-close="depleteDialog">إلغاء</button><button type="submit" class="btn btn-primary">حفظ تاريخ النفاد</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="detailDialog" class="modal detail-modal"><div class="modal-head"><div><span class="eyebrow">تفاصيل الصنف</span><h2 id="detailTitle">—</h2></div><button type="button" class="icon-btn" data-close="detailDialog" aria-label="إغلاق">×</button></div><div id="detailContent"></div><div class="modal-actions"><button id="addCycleBtn" class="btn btn-primary">＋ تسجيل شراء جديد</button><button type="button" class="btn btn-light" data-close="detailDialog">إغلاق</button></div></dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
